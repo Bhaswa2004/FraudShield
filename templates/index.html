@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FraudShield - SMS Spam Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ── Reset & Base ─────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #0f172a;
+            --surface:   #1e293b;
+            --surface-2: #334155;
+            --border:    #475569;
+            --text:      #f1f5f9;
+            --text-dim:  #94a3b8;
+            --accent:    #3b82f6;
+            --accent-g:  #22d3ee;
+            --ham:       #10b981;
+            --ham-bg:    #064e3b;
+            --spam:      #ef4444;
+            --spam-bg:   #7f1d1d;
+            --radius:    12px;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ── Header ───────────────────────────────────────────────── */
+        .header {
+            width: 100%;
+            padding: 24px 32px;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-bottom: 1px solid var(--surface-2);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header .shield-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-g));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+        }
+        .header h1 {
+            font-size: 24px; font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--accent-g));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header p { color: var(--text-dim); font-size: 14px; }
+
+        /* ── Main Container ───────────────────────────────────────── */
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 40px 24px 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        /* ── Card ─────────────────────────────────────────────────── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--surface-2);
+            border-radius: var(--radius);
+            padding: 32px;
+        }
+        .card h2 {
+            font-size: 18px; font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .card .subtitle {
+            font-size: 14px; color: var(--text-dim);
+            margin-bottom: 24px;
+        }
+
+        /* ── Textarea ─────────────────────────────────────────────── */
+        .input-group { position: relative; }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 16px;
+            background: var(--bg);
+            border: 2px solid var(--surface-2);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 15px;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        textarea::placeholder { color: var(--text-dim); }
+
+        .char-count {
+            position: absolute;
+            bottom: 12px; right: 16px;
+            font-size: 12px; color: var(--text-dim);
+        }
+
+        /* ── Button ───────────────────────────────────────────────── */
+        .btn-row {
+            display: flex; gap: 12px;
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-g));
+            color: #fff;
+            flex: 1;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled {
+            opacity: 0.5; cursor: not-allowed; transform: none;
+        }
+        .btn-secondary {
+            background: var(--surface-2);
+            color: var(--text-dim);
+        }
+        .btn-secondary:hover { background: var(--border); color: var(--text); }
+
+        /* ── Spinner ──────────────────────────────────────────────── */
+        .spinner {
+            display: inline-block;
+            width: 18px; height: 18px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Result Card ──────────────────────────────────────────── */
+        .result-card {
+            display: none;
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            animation: fadeSlideIn 0.4s ease-out;
+        }
+        .result-card.ham  { background: var(--ham-bg);  border: 2px solid var(--ham);  }
+        .result-card.spam { background: var(--spam-bg); border: 2px solid var(--spam); }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-header {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 16px;
+        }
+        .result-badge {
+            font-size: 32px; font-weight: 800;
+            letter-spacing: 2px;
+        }
+        .result-badge.ham  { color: var(--ham);  }
+        .result-badge.spam { color: var(--spam); }
+
+        .result-icon {
+            width: 52px; height: 52px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px;
+        }
+        .result-icon.ham  { background: rgba(16,185,129,0.2); }
+        .result-icon.spam { background: rgba(239,68,68,0.2); }
+
+        .result-details {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 13px;
+            color: var(--text-dim);
+            line-height: 1.8;
+        }
+        .result-details strong { color: var(--text); font-weight: 600; }
+
+        /* ── Example Chips ────────────────────────────────────────── */
+        .examples-label { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+        .chips {
+            display: flex; flex-wrap: wrap; gap: 8px;
+        }
+        .chip {
+            padding: 8px 14px;
+            background: var(--bg);
+            border: 1px solid var(--surface-2);
+            border-radius: 999px;
+            font-size: 13px;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chip:hover {
+            border-color: var(--accent);
+            color: var(--text);
+            background: var(--surface-2);
+        }
+
+        /* ── History ──────────────────────────────────────────────── */
+        .history-card { display: none; }
+        .history-card h2 { margin-bottom: 16px; }
+        .history-list { display: flex; flex-direction: column; gap: 8px; }
+
+        .history-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg);
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .history-item:hover { background: var(--surface-2); }
+        .history-tag {
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+        .history-tag.ham  { background: rgba(16,185,129,0.2); color: var(--ham); }
+        .history-tag.spam { background: rgba(239,68,68,0.2);  color: var(--spam); }
+        .history-msg {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-dim);
+        }
+
+        /* ── Model Info ───────────────────────────────────────────── */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+        .info-box {
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 8px;
+            text-align: center;
+        }
+        .info-box .value {
+            font-size: 22px; font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--accent-g));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .info-box .label {
+            font-size: 12px; color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        /* ── Responsive ───────────────────────────────────────────── */
+        @media (max-width: 600px) {
+            .header { padding: 16px; }
+            .header h1 { font-size: 20px; }
+            .card { padding: 20px; }
+            .btn-row { flex-direction: column; }
+            .info-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Header ──────────────────────────────────────────────── -->
+    <div class="header">
+        <div class="shield-icon">&#128737;</div>
+        <div>
+            <h1>FraudShield</h1>
+            <p>SMS Spam Detection powered by SVM</p>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <!-- ── Model Stats ─────────────────────────────────────── -->
+        <div class="card">
+            <h2>Model Performance</h2>
+            <p class="subtitle">Tuned Linear SVM with TF-IDF features</p>
+            <div class="info-grid">
+                <div class="info-box">
+                    <div class="value">99.0%</div>
+                    <div class="label">Accuracy</div>
+                </div>
+                <div class="info-box">
+                    <div class="value">99.3%</div>
+                    <div class="label">Precision</div>
+                </div>
+                <div class="info-box">
+                    <div class="value">92.6%</div>
+                    <div class="label">Recall</div>
+                </div>
+                <div class="info-box">
+                    <div class="value">95.8%</div>
+                    <div class="label">F1-Score</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Input Card ──────────────────────────────────────── -->
+        <div class="card">
+            <h2>Check a Message</h2>
+            <p class="subtitle">Type or paste an SMS message below to check if it's spam.</p>
+
+            <div class="input-group">
+                <textarea id="messageInput"
+                          placeholder="e.g. Congratulations! You've won a free iPhone. Click here to claim..."
+                          maxlength="1000"></textarea>
+                <span class="char-count" id="charCount">0 / 1000</span>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-primary" id="predictBtn" onclick="predict()">
+                    Analyze Message
+                </button>
+                <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+            </div>
+
+            <!-- Example chips -->
+            <div style="margin-top: 20px;">
+                <p class="examples-label">Try an example:</p>
+                <div class="chips">
+                    <span class="chip" onclick="fillExample(this)">Hey, are we still meeting for lunch?</span>
+                    <span class="chip" onclick="fillExample(this)">WINNER! Claim your $1000 prize NOW!</span>
+                    <span class="chip" onclick="fillExample(this)">Can you pick up milk on your way home?</span>
+                    <span class="chip" onclick="fillExample(this)">Free entry! Text WIN to 80085 to claim</span>
+                    <span class="chip" onclick="fillExample(this)">Your assignment is due by Friday.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Result Card ─────────────────────────────────────── -->
+        <div class="result-card" id="resultCard">
+            <div class="result-header">
+                <div class="result-icon" id="resultIcon"></div>
+                <div>
+                    <div class="result-badge" id="resultBadge"></div>
+                    <div style="font-size:14px; color:var(--text-dim);" id="resultSubtext"></div>
+                </div>
+            </div>
+            <div class="result-details" id="resultDetails"></div>
+        </div>
+
+        <!-- ── History Card ────────────────────────────────────── -->
+        <div class="card history-card" id="historyCard">
+            <h2>Recent Checks</h2>
+            <div class="history-list" id="historyList"></div>
+        </div>
+
+    </div>
+
+    <!-- ── Scripts ─────────────────────────────────────────────── -->
+    <script>
+        const input    = document.getElementById('messageInput');
+        const counter  = document.getElementById('charCount');
+        const btn      = document.getElementById('predictBtn');
+        const result   = document.getElementById('resultCard');
+        const history  = [];
+
+        // Character counter
+        input.addEventListener('input', () => {
+            counter.textContent = `${input.value.length} / 1000`;
+        });
+
+        // Enter = submit (Shift+Enter = newline)
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                predict();
+            }
+        });
+
+        // Fill example chip into textarea
+        function fillExample(el) {
+            input.value = el.textContent;
+            counter.textContent = `${input.value.length} / 1000`;
+            input.focus();
+        }
+
+        // Clear everything
+        function clearAll() {
+            input.value = '';
+            counter.textContent = '0 / 1000';
+            result.style.display = 'none';
+            input.focus();
+        }
+
+        // Main prediction function
+        async function predict() {
+            const msg = input.value.trim();
+            if (!msg) { input.focus(); return; }
+
+            // Disable button & show spinner
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+            try {
+                const res  = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg }),
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                showResult(data);
+                addHistory(data);
+
+            } catch (err) {
+                alert('Error connecting to the server.');
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Analyze Message';
+            }
+        }
+
+        // Render the result card
+        function showResult(data) {
+            const isSpam = data.label === 'SPAM';
+
+            result.className = `result-card ${isSpam ? 'spam' : 'ham'}`;
+            result.style.display = 'block';
+
+            document.getElementById('resultIcon').className  = `result-icon ${isSpam ? 'spam' : 'ham'}`;
+            document.getElementById('resultIcon').innerHTML   = isSpam ? '&#9888;' : '&#10003;';
+            document.getElementById('resultBadge').className  = `result-badge ${isSpam ? 'spam' : 'ham'}`;
+            document.getElementById('resultBadge').textContent = data.label;
+            document.getElementById('resultSubtext').textContent =
+                isSpam ? 'This message looks like spam.' : 'This message looks safe.';
+
+            document.getElementById('resultDetails').innerHTML =
+                `<strong>Original:</strong> ${escapeHtml(data.original)}<br>` +
+                `<strong>Cleaned:</strong> ${escapeHtml(data.cleaned)}`;
+
+            // Scroll to result
+            result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Add to history sidebar
+        function addHistory(data) {
+            history.unshift(data);
+            if (history.length > 10) history.pop();
+
+            const card = document.getElementById('historyCard');
+            const list = document.getElementById('historyList');
+            card.style.display = 'block';
+
+            list.innerHTML = history.map(h => `
+                <div class="history-item" onclick="document.getElementById('messageInput').value='${escapeAttr(h.original)}'; predict();">
+                    <span class="history-tag ${h.label.toLowerCase()}">${h.label}</span>
+                    <span class="history-msg">${escapeHtml(h.original)}</span>
+                </div>
+            `).join('');
+        }
+
+        // Utility: escape HTML
+        function escapeHtml(str) {
+            const el = document.createElement('span');
+            el.textContent = str;
+            return el.innerHTML;
+        }
+
+        // Utility: escape for attribute
+        function escapeAttr(str) {
+            return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

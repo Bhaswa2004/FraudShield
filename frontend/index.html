@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FraudShield - Financial Fraud Intelligence</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Auth Overlay -->
+    <div id="auth-overlay" class="auth-overlay hidden">
+        <div class="auth-card">
+            <h2 id="auth-title">Login to FraudShield</h2>
+            <form id="auth-form">
+                <div class="form-group">
+                    <label for="auth-username">Username</label>
+                    <input type="text" id="auth-username" placeholder="Enter username" required>
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" placeholder="Enter password" required>
+                </div>
+                <div id="auth-error" class="auth-error hidden"></div>
+                <button type="submit" class="btn-primary" style="width:100%">Login</button>
+            </form>
+            <p class="auth-toggle">Don't have an account? <a href="#" id="auth-switch">Register</a></p>
+            <button type="button" id="auth-skip" class="btn-outline" style="width:100%;margin-top:0.5rem">Skip (Continue as Guest)</button>
+        </div>
+    </div>
+
+    <header>
+        <h1>FraudShield</h1>
+        <p class="subtitle">Financial Fraud Intelligence</p>
+        <div class="user-bar" id="user-bar">
+            <span id="user-status">Guest</span>
+            <button id="btn-login" class="btn-outline btn-sm">Login</button>
+            <button id="btn-logout" class="btn-outline btn-sm hidden">Logout</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="single-section">Single Transaction</button>
+            <button class="tab-btn" data-tab="batch-section">Batch Upload</button>
+            <button class="tab-btn" data-tab="kernel-section">Kernel Visualization</button>
+            <button class="tab-btn" data-tab="metrics-section">Model Metrics</button>
+            <button class="tab-btn" data-tab="importance-section">Feature Importance</button>
+            <button class="tab-btn" data-tab="retrain-section">Retrain Models</button>
+            <button class="tab-btn" data-tab="roi-section">ROI Analysis</button>
+        </nav>
+
+        <div id="single-section">
+        <section class="card form-section">
+            <h2>New Transaction</h2>
+            <form id="transaction-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="amount">Amount ($)</label>
+                        <input type="number" id="amount" step="0.01" placeholder="e.g. 250.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="hour">Hour of Day</label>
+                        <input type="number" id="hour" min="0" max="23" placeholder="e.g. 14" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="merchant_risk">Merchant Risk Score</label>
+                        <input type="number" id="merchant_risk" min="0" max="1" step="0.01" placeholder="e.g. 0.3" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="distance_from_home">Distance from Home (km)</label>
+                        <input type="number" id="distance_from_home" step="0.1" placeholder="e.g. 15.5" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transaction_velocity">Transaction Velocity</label>
+                        <input type="number" id="transaction_velocity" min="1" placeholder="e.g. 2" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="is_international">International</label>
+                        <select id="is_international" required>
+                            <option value="0">No (0)</option>
+                            <option value="1">Yes (1)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Analyze Transaction</button>
+                    <div class="quick-fill">
+                        <button type="button" id="btn-sample-legit" class="btn-outline">Try Sample Legit</button>
+                        <button type="button" id="btn-sample-fraud" class="btn-outline">Try Sample Fraud</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <section id="results-panel" class="card results-section hidden">
+            <div id="verdict-banner" class="verdict-banner">
+                <span id="verdict-icon"></span>
+                <h2 id="verdict-text">VERDICT</h2>
+            </div>
+            
+            <div class="results-grid">
+                <div class="model-comparison">
+                    <h3>Model Comparison</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Score</th>
+                                <th>Verdict</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="discriminant-details">
+                    <h3>Discriminant Function Breakdown</h3>
+                    <div class="formula-box">
+                        <code>g(x) = w₁x₁ + w₂x₂ + ... + w₆x₆ + b</code>
+                    </div>
+                    <div id="contribution-bars" class="contribution-container">
+                        <!-- Bars populated by JS -->
+                    </div>
+                    <div class="score-line-container">
+                        <p>Raw Score: <span id="discriminant-raw" class="mono"></span> | Threshold: <span id="discriminant-threshold" class="mono"></span> | Bias: <span id="discriminant-bias" class="mono"></span></p>
+                        <div id="discriminant-number-line" class="number-line"></div>
+                    </div>
+                </div>
+
+                <div class="svm-details">
+                    <h3>SVM Details</h3>
+                    <div class="score-line-container">
+                        <p>Decision Value: <span id="svm-decision" class="mono"></span> (Margin Width: <span id="svm-margin" class="mono"></span>)</p>
+                        <div id="svm-number-line" class="number-line"></div>
+                    </div>
+                    <div class="svm-stats">
+                        <p>Support Vectors: <span id="svm-sv-counts" class="mono"></span></p>
+                        <h4>Weight Vector</h4>
+                        <table class="data-table small">
+                            <tbody id="svm-weights-tbody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+        </div>
+
+        <section id="batch-section" class="card hidden">
+            <h2>CSV Batch Upload</h2>
+            <p class="section-desc">Upload a CSV file with columns: amount, hour, merchant_risk, distance_from_home, transaction_velocity, is_international</p>
+            <div class="upload-area" id="upload-area">
+                <input type="file" id="csv-file" accept=".csv" hidden>
+                <button type="button" id="btn-upload" class="btn-primary">Choose CSV File</button>
+                <span id="file-name" class="file-name">No file selected</span>
+                <button type="button" id="btn-process" class="btn-primary" disabled>Process Batch</button>
+                <button type="button" id="btn-sample-csv" class="btn-outline">Download Sample CSV</button>
+            </div>
+            <div id="batch-results" class="hidden">
+                <div class="batch-summary" id="batch-summary"></div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Row</th><th>Amount</th><th>Discriminant</th><th>SVM (Linear)</th><th>SVM (RBF)</th><th>Logistic P(fraud)</th><th>Verdict</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batch-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="kernel-section" class="card hidden">
+            <h2>Kernel Decision Boundary Visualization</h2>
+            <p class="section-desc">A synthetic 2D dataset (fraud in center, legit in outer ring) demonstrates why nonlinear SVM kernels are needed. Toggle between Linear and RBF to see how the decision boundary changes.</p>
+            <div class="kernel-controls">
+                <button type="button" id="btn-kernel-linear" class="btn-kernel active">Linear Kernel</button>
+                <button type="button" id="btn-kernel-rbf" class="btn-kernel">RBF Kernel</button>
+                <span id="kernel-accuracy" class="kernel-accuracy"></span>
+            </div>
+            <div class="canvas-container">
+                <canvas id="boundary-canvas" width="600" height="600"></canvas>
+                <div class="canvas-legend">
+                    <span class="legend-item"><span class="legend-dot fraud-dot"></span> Fraud</span>
+                    <span class="legend-item"><span class="legend-dot legit-dot"></span> Legitimate</span>
+                    <span class="legend-item"><span class="legend-dot sv-dot"></span> Support Vector</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="metrics-section" class="card hidden">
+            <h2>Model Performance Metrics</h2>
+            <p class="section-desc">Evaluated on the held-out test split of the bundled dataset.</p>
+            <div class="metrics-grid" id="metrics-grid">
+                <!-- Populated by JS -->
+            </div>
+            <div id="metrics-note" class="metrics-note"></div>
+        </section>
+
+<!-- Feature Importance Section -->
+<section id="importance-section" class="card hidden">
+    <h2>Feature Importance Analysis</h2>
+    <p class="section-desc">Relative importance of each feature across all linear models, derived from model weight magnitudes.</p>
+    <div class="importance-tabs">
+        <button class="imp-tab active" data-model="aggregate">Aggregate</button>
+        <button class="imp-tab" data-model="discriminant">Discriminant</button>
+        <button class="imp-tab" data-model="linear_svm">Linear SVM</button>
+        <button class="imp-tab" data-model="logistic">Logistic</button>
+    </div>
+    <div id="importance-chart" class="importance-chart"></div>
+    <div id="importance-table-container"></div>
+</section>
+
+<!-- Retrain Section -->
+<section id="retrain-section" class="card hidden">
+    <h2>Model Retraining Pipeline</h2>
+    <p class="section-desc">Upload a labeled CSV dataset to retrain all models. CSV must include columns: amount, hour, merchant_risk, distance_from_home, transaction_velocity, is_international, is_fraud</p>
+    <div class="upload-area">
+        <input type="file" id="retrain-file" accept=".csv" hidden>
+        <button type="button" id="btn-retrain-upload" class="btn-primary">Choose Training CSV</button>
+        <span id="retrain-file-name" class="file-name">No file selected</span>
+        <button type="button" id="btn-retrain" class="btn-primary" disabled>Retrain All Models</button>
+        <button type="button" id="btn-sample-train-csv" class="btn-outline">Download Sample Training CSV</button>
+    </div>
+    <div id="retrain-results" class="hidden">
+        <div id="retrain-summary" class="retrain-summary"></div>
+        <h3>Before vs After Comparison</h3>
+        <div id="retrain-comparison" class="retrain-comparison"></div>
+    </div>
+</section>
+
+<!-- ROI Section -->
+<section id="roi-section" class="card hidden">
+    <h2>ROI Analysis</h2>
+    <p class="section-desc">Estimated return on investment from fraud detection based on transaction history.</p>
+    <div id="roi-content"></div>
+</section>
+
+        <div class="bottom-grid">
+            <section class="card history-section">
+                <h2>Transaction History</h2>
+                <div class="table-responsive">
+                    <table class="data-table history-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Time</th>
+                                <th>Amount</th>
+                                <th>Discriminant</th>
+                                <th>SVM Score</th>
+                                <th>Verdict</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card alerts-section">
+                <h2>Fraud Alerts</h2>
+                <div id="alerts-container" class="alerts-container">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+        </div>
+    </main>
+    <div id="toast-container" class="toast-container"></div>
+    <script src="/static/app.js"></script>
+</body>
+</html>
